@@ -106,35 +106,32 @@ class _RefreshAndLoadWidgetState extends State<RefreshAndLoadWidget>
     } else {
       onRefreshEnd();
     }*/
-     refreshState == RefreshIndicatorMode.refresh;
+//    refreshState == RefreshIndicatorMode.refresh;
 
     const Curve opacityCurve = Interval(0.4, 0.8, curve: Curves.easeInOut);
 
-   return Opacity(
-     opacity: opacityCurve.transform(
-         min(pulledExtent / refreshIndicatorExtent, 1.0)
-     ),
-     child: const CupertinoActivityIndicator(radius: 14.0),
-   );
-    return AnimatedSwitcher(
-        transitionBuilder: (child, anim) {
-          return ScaleTransition(child: child, scale: anim);
-        },
-        duration: Duration(milliseconds: 500),
-        child: Container(
+    print("state:${pulledExtent}");
+//   return Opacity(
+//     opacity: opacityCurve.transform(
+//         min(pulledExtent / refreshIndicatorExtent, 1.0)
+//     ),
+//     child: const CupertinoActivityIndicator(radius: 14.0),
+//   );
+    return  Container(
             height: pulledExtent > 120 ? pulledExtent : 120,
             width: MediaQuery.of(context).size.width,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                new Text('这里是下拉哦'),
                 SizedBox(
                   width: 30,
                   height: 30,
-                  child: m.CircularProgressIndicator(),
+                  child:(_scrollController.position.pixels<-40)
+                      ? m.CircularProgressIndicator()
+                      : new Container(),
                 )
               ],
-            )));
+            ));
   }
 
   Widget _getItem(int index) {
@@ -151,29 +148,30 @@ class _RefreshAndLoadWidgetState extends State<RefreshAndLoadWidget>
         ? Text("正在加载中。。。")
         : Text("加载完毕");
 
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: bottom,
-    );
+    return Align(
+        alignment: Alignment.center,
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: bottom,
+        ));
   }
 
-  Future<Null> handleRefresh() async{
+  Future<Null> handleRefresh() async {
     widget.onRefresh?.call();
     await doDelayed();
+
     return null;
   }
 
-  Future<Null> handleLoadMore() async{
+  Future<Null> handleLoadMore() async {
     Fluttertoast.showToast(msg: "handleLoadMore");
     widget.onRLoadMore?.call();
     return null;
   }
 
   doDelayed() async {
-    await Future.delayed(Duration(seconds: 3)).then((_) async {
-
-        return null;
-
+    await Future.delayed(Duration(seconds: 2)).then((_) async {
+      return null;
     });
   }
 }
