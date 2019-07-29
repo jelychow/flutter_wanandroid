@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' as m;
 import 'package:flutter/widgets.dart';
-import 'package:flutter_wanandroid/widget/custom_bouncing_scroll_physics.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 class RefreshAndLoadWidget extends StatefulWidget {
@@ -25,6 +24,7 @@ class RefreshAndLoadWidget extends StatefulWidget {
 class _RefreshAndLoadWidgetState extends State<RefreshAndLoadWidget>
     with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = new ScrollController();
+  GlobalKey _myKey = new GlobalKey();
 
   AnimationController controller;
   Animation animation;
@@ -72,44 +72,51 @@ class _RefreshAndLoadWidgetState extends State<RefreshAndLoadWidget>
   }
 
   @override
+  void didUpdateWidget(RefreshAndLoadWidget oldWidget) {
+    RenderObject renderObject = _myKey.currentContext.findRenderObject();
+    try {
+      print("${renderObject.paintBounds.height}");
+    } catch (e) {
+//            print(e);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return new Container(
         child: CustomScrollView(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(),
-      slivers: <Widget>[
-        CupertinoSliverRefreshControl(
-          onRefresh: handleRefresh,
-          builder: buildSimpleRefreshIndicator,
-        ),
-        SliverSafeArea(
-          top: false,
-          sliver: SliverList(
-              delegate:
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(),
+          slivers: <Widget>[
+            CupertinoSliverRefreshControl(
+              onRefresh: handleRefresh,
+              builder: buildSimpleRefreshIndicator,
+            ),
+            SliverSafeArea(
+              key: _myKey,
+              top: false,
+              sliver: SliverList(
+                  delegate:
                   SliverChildBuilderDelegate((BuildContext context, int index) {
-            return _getItem(index);
-          }, childCount: widget.refreshAndLoadControl.dataList.length + 1)),
-        )
-      ],
-    ));
+                    return _getItem(index, context);
+                  }, childCount: widget.refreshAndLoadControl.dataList.length + 1)),
+            )
+          ],
+        ));
   }
 
   Widget buildSimpleRefreshIndicator(
-    BuildContext context,
-    RefreshIndicatorMode refreshState,
-    double pulledExtent,
-    double refreshTriggerPullDistance,
-    double refreshIndicatorExtent,
-  ) {
+      BuildContext context,
+      RefreshIndicatorMode refreshState,
+      double pulledExtent,
+      double refreshTriggerPullDistance,
+      double refreshIndicatorExtent,
+      ) {
     /*if(refreshState == IOS.RefreshIndicatorMode.refresh) {
       onRefreshing();
     } else {
       onRefreshEnd();
     }*/
-//    refreshState == RefreshIndicatorMode.refresh;
-
-    const Curve opacityCurve = Interval(0.4, 0.8, curve: Curves.easeInOut);
-
     print("state:${pulledExtent}");
 //   return Opacity(
 //     opacity: opacityCurve.transform(
@@ -117,30 +124,46 @@ class _RefreshAndLoadWidgetState extends State<RefreshAndLoadWidget>
 //     ),
 //     child: const CupertinoActivityIndicator(radius: 14.0),
 //   );
-    return  Container(
-            height: pulledExtent > 120 ? pulledExtent : 120,
-            width: MediaQuery.of(context).size.width,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                SizedBox(
-                  width: 30,
-                  height: 30,
-                  child:(_scrollController.position.pixels<-40)
-                      ? m.CircularProgressIndicator()
-                      : new Container(),
-                )
-              ],
-            ));
+    return Container(
+        height: pulledExtent > 120 ? pulledExtent : 120,
+        width: MediaQuery.of(context).size.width,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            SizedBox(
+              width: 30,
+              height: 30,
+              child: (pulledExtent.abs() > 30)
+                  ? const m.CircularProgressIndicator()
+                  : new Container(),
+            )
+          ],
+        ));
   }
 
-  Widget _getItem(int index) {
+  Widget _getItem(int index, BuildContext context) {
+    if (widget.refreshAndLoadControl._dataList?.length == 0) {
+      return _buildEmpty();
+    }
+
     if (index == widget.refreshAndLoadControl._dataList?.length) {
       return _buildLoadMoreIndicator();
     } else {
       return widget.builder(context, index);
     }
 //    return Text("$index");
+  }
+
+  Widget _buildEmpty() {
+
+    Widget empty = Container(
+      height: MediaQuery.of(context).size.height,
+      width: MediaQuery.of(context).size.width,
+      child: Text("这里是空占位哦"),
+      alignment: FractionalOffset(0.5, 0.4),
+    );
+
+    return empty;
   }
 
   Widget _buildLoadMoreIndicator() {
@@ -157,15 +180,30 @@ class _RefreshAndLoadWidgetState extends State<RefreshAndLoadWidget>
   }
 
   Future<Null> handleRefresh() async {
-    widget.onRefresh?.call();
-    await doDelayed();
+    if (widget.refreshAndLoadControl.isRefreshing) {
+      //如果还在刷新 说明还在执行加载任务 那么不处理
+      return null;
+    }
+    Fluttertoast.showToast(msg: "handleRefresh");
+
+    widget.refreshAndLoadControl.isRefreshing = true;
+    await widget.onRefresh?.call();
+//    await doDelayed();
+    widget.refreshAndLoadControl.isRefreshing = false;
 
     return null;
   }
 
   Future<Null> handleLoadMore() async {
+    if (widget.refreshAndLoadControl.isLoading) {
+      //如果还在刷新 说明还在执行加载任务 那么不处理
+      return null;
+    }
+
+    widget.refreshAndLoadControl.isLoading = true;
     Fluttertoast.showToast(msg: "handleLoadMore");
-    widget.onRLoadMore?.call();
+    await widget.onRLoadMore?.call();
+    widget.refreshAndLoadControl.isLoading = false;
     return null;
   }
 
@@ -195,6 +233,24 @@ class RefreshAndLoadControl extends ChangeNotifier {
 
   set needLoadMore(bool value) {
     _needLoadMore = value;
+    notifyListeners();
+  }
+
+  bool _isLoading = false;
+
+  get isLoading => _isLoading;
+
+  set isLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+
+  bool _isRefreshing = false;
+
+  get isRefreshing => _isRefreshing;
+
+  set isRefreshing(bool value) {
+    _isRefreshing = value;
     notifyListeners();
   }
 }

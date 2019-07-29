@@ -30,7 +30,7 @@ class _projectState extends State<ProjectsWidget>
     var responseBody = await response.transform(utf8.decoder).join();
     Map data = json.decode(responseBody);
     Projects listRes = Projects.fromJson(data);
-    if (page==0) {
+    if (page == 0) {
       widgets.clear();
     }
 //    widgets = listRes.data.datas;
@@ -40,12 +40,11 @@ class _projectState extends State<ProjectsWidget>
     Fluttertoast.showToast(msg: "${listRes.data.datas.length}条");
 
     try {
-      if (listRes.data.datas.length>=15) {
-
-            refreshAndLoadControl.needLoadMore = true;
-          } else{
-            refreshAndLoadControl.needLoadMore = false;
-          }
+      if (listRes.data.datas.length >= 15) {
+        refreshAndLoadControl.needLoadMore = true;
+      } else {
+        refreshAndLoadControl.needLoadMore = false;
+      }
     } catch (e) {
       print(e);
       refreshAndLoadControl.needLoadMore = false;
@@ -113,17 +112,20 @@ class _projectState extends State<ProjectsWidget>
         refresh, loadmore, getRow, refreshAndLoadControl);
   }
 
-  Future<Null> refresh() {
+  Future<Null> refresh() async {
     print("refresh");
-    page=0;
-    getProjectlist();
+    page = 0;
+    await getProjectlist();
+    await Future.delayed(Duration(seconds: 1)).then((_) async {
+      return null;
+    });
     return null;
   }
 
-  Future<Null> loadmore() {
+  Future<Null> loadmore() async {
     print("loadmore");
     page++;
-    getProjectlist();
+    await getProjectlist();
 
     return null;
   }
